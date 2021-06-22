@@ -1,0 +1,29 @@
+#!/bin/execlineb -P
+
+backtick -D "/app /config /defaults" DEFAULT_DIR { printcontenv DEFAULT_DIR }
+backtick -E __USER { printcontenv __USER }
+if {
+	backtick -D 1000 -E __UID { printcontenv __UID }
+	backtick -D ${__UID} -E __GID { printcontenv __GID }
+	if { redirfd -w 1 /dev/null groupmod -o -g ${__GID} ${__USER} }
+	if { redirfd -w 1 /dev/null usermod -o -u ${__UID} ${__USER} }
+	s6-echo -- "[INFO] ${__USER} = ${__UID}:${__GID}"
+}
+backtick -E CONTENV_DIR { mktemp -u }
+foreground { with-contenv s6-dumpenv ${CONTENV_DIR} }
+if {
+	importas -isu DEFAULT_DIR DEFAULT_DIR
+	forx -o 0 -p -E dir { ${DEFAULT_DIR} }
+	if -n { s6-test -f ${dir} }
+	if { s6-mkdir -p ${dir} }
+	backtick -E md5sum {
+		pipeline { heredoc 0 ${dir} md5sum }
+		awk "{print $1}"
+	}
+	redirfd -w 1 "${CONTENV_DIR}/__CONF-${md5sum}" s6-echo -- ${dir}
+}
+elglob -s0 conf "${CONTENV_DIR}/*[cC][oO][nN][fF]*"
+forx -o 0 -p -E key { ${conf} }
+backtick -E value { redirfd -r 0 ${key} s6-cat }
+if -t { s6-test -d ${value} }
+chown -R ${__USER}:${__USER} ${value}

@@ -1,9 +1,17 @@
 ARG ALPINE_VERSION="3.13"
 FROM alpine:${ALPINE_VERSION}
 
-RUN apk add --no-cache procps s6-overlay
+RUN apk add --no-cache procps s6-overlay shadow
 
+# https://git.io/JnEnY
 ARG S6_BEHAVIOUR_IF_STAGE2_FAILS=2
 ENV S6_BEHAVIOUR_IF_STAGE2_FAILS=${S6_BEHAVIOUR_IF_STAGE2_FAILS}
+ARG S6_CMD_WAIT_FOR_SERVICES_MAXTIME=15000
+ENV S6_CMD_WAIT_FOR_SERVICES_MAXTIME=${S6_CMD_WAIT_FOR_SERVICES_MAXTIME}
+
+ARG __USER="_owner"
+ENV __USER=${__USER}
+
+RUN useradd -MU -d /dev/null -s $(command -v nologin) ${__USER}
 
 COPY overlay-rootfs /
