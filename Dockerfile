@@ -1,7 +1,7 @@
 ARG ALPINE_VERSION="3.13"
 FROM alpine:${ALPINE_VERSION}
 
-RUN apk add --no-cache procps s6-overlay shadow
+RUN apk add --no-cache s6-overlay shadow
 
 # https://git.io/JnEnY
 ARG S6_BEHAVIOUR_IF_STAGE2_FAILS=2
