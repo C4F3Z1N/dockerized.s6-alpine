@@ -1,6 +1,6 @@
 #!/bin/execlineb -P
 
-backtick -D "/defaults" DEFAULT_EXEC_DIR {
+backtick -D "/app /defaults" DEFAULT_EXEC_DIR {
 	printcontenv DEFAULT_EXEC_DIR
 }
 importas -isu DEFAULT_EXEC_DIR DEFAULT_EXEC_DIR
