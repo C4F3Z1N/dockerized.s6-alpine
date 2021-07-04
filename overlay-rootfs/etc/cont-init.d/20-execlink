@@ -4,7 +4,8 @@ backtick -D "/app /defaults" DEFAULT_EXEC_DIR {
 	printcontenv DEFAULT_EXEC_DIR
 }
 importas -isu DEFAULT_EXEC_DIR DEFAULT_EXEC_DIR
-elglob -s0 g "${DEFAULT_EXEC_DIR}/*"
+forx -o 0 -p -E dir { {DEFAULT_EXEC_DIR} }
+elglob -s0 g "${dir}/*"
 forx -o 0 -p -E path { ${g} }
 if -t { s6-test -f ${path} }
 if -t {
