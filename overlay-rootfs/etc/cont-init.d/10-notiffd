@@ -1,0 +1,16 @@
+#!/bin/execlineb -P
+
+backtick -D "/etc/services.d" -E SERVICES_DIR {
+	printcontenv SERVICES_DIR
+}
+pipeline { grep -r "s6-notifyoncheck" ${SERVICES_DIR} }
+forstdin -o 0 -p -E line
+if -nt { heredoc 0 ${line} grep -q "\\-3" }
+backtick -E svc {
+	backtick -E run_cmd {
+		heredoc 0 ${line} awk -F ":" "{print $1}"
+	}
+	s6-dirname ${run_cmd}
+}
+if -nt { s6-test -f "${svc}/notification-fd" }
+redirfd -w 1 "${svc}/notification-fd" s6-echo "3"
