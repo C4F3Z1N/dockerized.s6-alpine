@@ -1,13 +1,27 @@
 #!/bin/execlineb -P
 
-backtick -D "/app /config /defaults" DEFAULT_DIR { printcontenv DEFAULT_DIR }
-backtick -E __USER { printcontenv __USER }
+backtick -D "/app /config /defaults" DEFAULT_DIR {
+	printcontenv DEFAULT_DIR
+}
+backtick -E USER { printcontenv __USER }
 if {
-	backtick -D 1000 -E __UID { printcontenv __UID }
-	backtick -D ${__UID} -E __GID { printcontenv __GID }
-	if { redirfd -w 1 /dev/null groupmod -o -g ${__GID} ${__USER} }
-	if { redirfd -w 1 /dev/null usermod -o -u ${__UID} ${__USER} }
-	s6-echo -- "[INFO] ${__USER} = ${__UID}:${__GID}"
+	redirfd -w 1 /dev/null
+	foreground {
+		backtick -D "-1" -E UID { printcontenv __UID }
+		if -t { s6-test ${UID} -ge 0 }
+		usermod -o -u ${UID} ${USER}
+	}
+	importas -iu UID_EXIT ?
+	foreground {
+		backtick -D "-1" -E GID { printcontenv __GID }
+		if -t { s6-test ${GID} -ge 0 }
+		groupmod -o -g ${GID} ${USER}
+	}
+	importas -iu GID_EXIT ?
+	backtick -D 126 -E CODE {
+		foreground { s6-expr ${UID_EXIT} + ${GID_EXIT} }
+	}
+	exit ${CODE}
 }
 backtick -E CONTENV_DIR { mktemp -u }
 foreground { with-contenv s6-dumpenv ${CONTENV_DIR} }
@@ -20,10 +34,11 @@ if {
 		pipeline { heredoc 0 ${dir} md5sum }
 		awk "{print $1}"
 	}
-	redirfd -w 1 "${CONTENV_DIR}/__CONF-${md5sum}" s6-echo -- ${dir}
+	redirfd -w 1 "${CONTENV_DIR}/__CONF-${md5sum}" s6-echo ${dir}
 }
 elglob -s0 conf "${CONTENV_DIR}/*[cC][oO][nN][fF]*"
 forx -o 0 -p -E key { ${conf} }
 backtick -E value { redirfd -r 0 ${key} s6-cat }
 if -t { s6-test -d ${value} }
-chown -R ${__USER}:${__USER} ${value}
+if -t { s6-test -w ${value} }
+chown -R ${USER}:${USER} ${value}
