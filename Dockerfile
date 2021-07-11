@@ -15,3 +15,5 @@ ENV __USER=${__USER}
 RUN useradd -MU -d /dev/null -s $(command -v nologin) ${__USER}
 
 COPY overlay-rootfs /
+
+CMD ["/init"]
