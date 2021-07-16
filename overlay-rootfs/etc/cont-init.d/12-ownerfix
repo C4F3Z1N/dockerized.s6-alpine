@@ -1,9 +1,14 @@
 #!/bin/execlineb -P
 
+# summary: changes the owner (recursively) of DEFAULT_DIR.
+# usage: run the container with the flags
+# "-e __UID=$(id -u)" and "-e __GID=$(id -g)".
+
 backtick -D "/app /config /defaults" DEFAULT_DIR {
 	printcontenv DEFAULT_DIR
 }
 backtick -E USER { printcontenv __USER }
+# change the __USER's UID and GID to the specified ones;
 if {
 	redirfd -w 1 /dev/null
 	foreground {
@@ -11,33 +16,38 @@ if {
 		if -t { s6-test ${UID} -ge 0 }
 		usermod -o -u ${UID} ${USER}
 	}
-	importas -iu UID_EXIT ?
+	importas -iu UID ?
 	foreground {
 		backtick -D "-1" -E GID { printcontenv __GID }
 		if -t { s6-test ${GID} -ge 0 }
 		groupmod -o -g ${GID} ${USER}
 	}
-	importas -iu GID_EXIT ?
-	backtick -D 126 -E CODE {
-		foreground { s6-expr ${UID_EXIT} + ${GID_EXIT} }
-	}
-	exit ${CODE}
+	importas -iu GID ?
+	# if any of the above attempts fail, raise its error code;
+	ifelse { s6-test ${GID} -ge ${UID} } { exit ${GID} }
+	exit ${UID}
 }
-backtick -E CONTENV_DIR { mktemp -u }
-foreground { with-contenv s6-dumpenv ${CONTENV_DIR} }
+backtick -E dumpenv { mktemp -u }
+foreground {
+	with-contenv
+	s6-dumpenv ${dumpenv}
+}
 if {
 	importas -isu DEFAULT_DIR DEFAULT_DIR
 	forx -o 0 -p -E dir { ${DEFAULT_DIR} }
-	if -n { s6-test -f ${dir} }
+	# confirm that this path doesn't lead to an existing file;
+	if -nt { s6-test -f ${dir} }
 	if { s6-mkdir -p ${dir} }
-	backtick -E md5sum {
-		pipeline { heredoc 0 ${dir} md5sum }
-		awk "{print $1}"
-	}
-	redirfd -w 1 "${CONTENV_DIR}/__CONF-${md5sum}" s6-echo ${dir}
+	# get the sum of its path to avoid name collisions;
+	pipeline { heredoc 0 ${dir} md5sum }
+	pipeline { awk "{print $1}" }
+	withstdinas -E sum
+	# write its clean value to the key (file) CONF-${sum};
+	redirfd -w 1 "${dumpenv}/CONF-${sum}"
+	s6-echo ${dir}
 }
-elglob -s0 conf "${CONTENV_DIR}/*[cC][oO][nN][fF]*"
-forx -o 0 -p -E key { ${conf} }
+elglob keys "${dumpenv}/*[cC][oO][nN][fF]*"
+forx -o 0 -p -E key { ${keys} }
 backtick -E value { redirfd -r 0 ${key} s6-cat }
 if -t { s6-test -d ${value} }
 if -t { s6-test -w ${value} }

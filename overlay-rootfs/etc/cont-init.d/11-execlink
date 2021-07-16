@@ -1,18 +1,22 @@
 #!/bin/execlineb -P
 
+# summary: creates a symlink in "/usr/local/bin"
+# for every executable and/or shebang file
+# immediately stored in these directories.
+
 backtick -D "/app /defaults" DEFAULT_EXEC_DIR {
 	printcontenv DEFAULT_EXEC_DIR
 }
 importas -isu DEFAULT_EXEC_DIR DEFAULT_EXEC_DIR
 forx -o 0 -p -E dir { ${DEFAULT_EXEC_DIR} }
-elglob -s0 g "${dir}/*"
-forx -o 0 -p -E path { ${g} }
-if -t { s6-test -f ${path} }
+elglob files "${dir}/*"
+forx -o 0 -p -E file { ${files} }
+if -t { s6-test -f ${file} }
 if -t {
 	ifelse {
-		pipeline { grep -n "#!" ${path} }
+		pipeline { grep -n "#!" ${file} }
 		grep -q "1:#!"
-	} { chmod a+x ${path} }
-	s6-test -x ${path}
+	} { s6-chmod 775 ${file} }
+	s6-test -x ${file}
 }
-s6-ln -fs ${path} "/usr/local/bin"
+s6-ln -fs ${file} "/usr/local/bin"

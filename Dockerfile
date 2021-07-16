@@ -12,7 +12,11 @@ ENV S6_CMD_WAIT_FOR_SERVICES_MAXTIME=${S6_CMD_WAIT_FOR_SERVICES_MAXTIME}
 ARG __USER="_owner"
 ENV __USER=${__USER}
 
-RUN useradd -MU -d /dev/null -s $(command -v nologin) ${__USER}
+# http://www.skarnet.org/software/execline/dieshdiedie.html
+SHELL ["execlineb", "-P", "-c"]
+
+RUN importas -iu __USER __USER \
+	useradd -MU -d /dev/null -s /sbin/nologin ${__USER}
 
 COPY overlay-rootfs /
 
