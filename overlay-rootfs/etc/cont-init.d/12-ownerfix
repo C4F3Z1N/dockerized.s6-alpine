@@ -50,5 +50,16 @@ elglob keys "${dumpenv}/*[cC][oO][nN][fF]*"
 forx -o 0 -p -E key { ${keys} }
 backtick -E value { redirfd -r 0 ${key} s6-cat }
 if -t { s6-test -d ${value} }
-if -t { s6-test -w ${value} }
-chown -R ${USER}:${USER} ${value}
+# log "chown" error output to a file;
+backtick -E tmperr { mktemp -u }
+foreground {
+	redirfd -w 2 ${tmperr}
+	chown -R ${USER}:${USER} ${value}
+}
+importas -iu exit_code ?
+if -t { s6-test ${exit_code} -ne 0 }
+fdmove -c 1 2
+# if the error file contains only "Read-only file system"
+# lines, print them out and ignore the error;
+ifelse { grep -v "Read-only file system" ${tmperr} } { exit ${exit_code} }
+redirfd -r 0 ${tmperr} s6-cat
